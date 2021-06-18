@@ -46,14 +46,14 @@
 int input_signal = 104;
 volatile unsigned long timeStamp = 0; //system clock captured in interrupt
 volatile unsigned long lastTime = 0;
-int timeRecord[21] = {0};
+volatile int timeRecord[21] = {0};
 int receiveFrame[21] = {0};
 unsigned long beginRx;
 bool TX = 1;
 bool RX = 0;
-bool first = 0;
+volatile bool first = 0;
 bool writeToList = 0;
-int counter = -1;
+volatile int counter = 0;
 int duration;
 int sum;
 int telemetry = 0;
@@ -180,7 +180,6 @@ void getTime() {
     timeStamp = ARM_DWT_CYCCNT; 
     timeRecord[counter] = timeStamp - lastTime;
     counter++;
-    Serial.print("*I*");
   }
   
 }
@@ -214,7 +213,7 @@ void loop() {
     // Update flags & variables for Rx
     TX = 0; RX = 1; first = 1;
     beginRx = micros();
-    counter = -1; timeStamp = 0;
+    counter = 0; timeStamp = 0;
     for(int i=0; i<21; i++){
       receiveFrame[i] = 0;
       timeRecord[i] = 0;
@@ -228,46 +227,34 @@ void loop() {
 
 // ----- RECEIVE STATE ----- //
 
-  // This will continually loop, documenting updates that happen as the attachInterrupt()
-  // marks the timestamps of signal switches
+  // This will continually loop, checking if full signal has been received
+  // before switching back to Tx
   if(RX){
 
-    if(micros() - beginRx == 30 || micros() - beginRx == 45 || micros() - beginRx == 15){
-      Serial.print("Time: "); Serial.print(micros() - beginRx); Serial.print(", Counter: "); Serial.println(counter);
-    }
-    
-    if(micros() - beginRx > 60){ // If Rx times out
+    if(micros() - beginRx >= 90){ // If Rx times out
 
       detachInterrupt(pinNum);
       
       // Debug print statements
-      Serial.println("Wait 60 micros since signal starts ---");
       Serial.print("Micros passed: "); Serial.println(micros() - beginRx);
-      Serial.print("Timer: ");
+      Serial.print("Timings: ");
       for(int i=0; i<21; i++){
         Serial.print(timeRecord[i]); Serial.print(", ");
       }
       Serial.println(".");
 
-      for(int i=0; i<21; i++){
-        int a = rint((double)timeRecord[i]/800);
-        timeRecord[i] = a;
-      }
-
-      for(int i=0; i<21; i++){
-        Serial.print(timeRecord[i]); Serial.print(", ");
-      }
-      Serial.println(".");
-
+      // Convert ARM cycle ticks to pulse lengths (~ 1/800)
       // Check if we have received the full signal
       sum = 0;
       for(int i=0; i<21; i++){
-        sum += timeRecord[i];
+        int a = rint((double)timeRecord[i]/800);
+        timeRecord[i] = a;
+        sum += a;
       }
 
-      // Convert the timeRecord array to an array of 1's and 0's
+      // Convert the timeRecord array to 1's and 0's
       // Only if we have a valid signal
-      if(sum >= 21){ 
+      if(sum >= 20){ 
         
         int index = 0;
         for(int i=0; i<21; i++){
@@ -290,7 +277,7 @@ void loop() {
       RX = 0; TX = 1;
 
       // Wait a little, switch to output
-      delayMicroseconds(35);
+      //delayMicroseconds(20);
       pinMode(pinNum, OUTPUT);
       
     }
