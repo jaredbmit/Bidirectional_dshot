@@ -1,11 +1,9 @@
-// Written by Bill Kuhl with guidance from Parker Lusk for the MIT Aerospace Controls Lab
-//
-// Works with teensy 4.0
-// 28 May 2021
-
 #include <stdlib.h>
+#include <algorithm>
 #include <math.h>
 #include <TimeLib.h>
+#include <string>
+#include <bitset>
 
 #define pinNum 1
 
@@ -47,7 +45,10 @@ int input_signal = 104;
 volatile unsigned long timeStamp = 0; //system clock captured in interrupt
 volatile unsigned long lastTime = 0;
 volatile int timeRecord[21] = {0};
-int receiveFrame[21] = {0};
+//int receiveFrame[21] = {0};
+std::bitset<21> receiveFrame;
+std::bitset<21> gcr;
+//int gcr[21];
 unsigned long beginRx;
 bool TX = 1;
 bool RX = 0;
@@ -122,6 +123,29 @@ void inv_off(){
   digitalWriteFast(pinNum, HIGH);
   OFF_LOW;
   
+}
+
+
+
+std::string gcr_map(std::string binary){
+
+  if(binary == "11001"){return "0000";}
+  else if(binary == "11011"){return "0001";}
+  else if(binary == "10010"){return "0010";}
+  else if(binary == "10011"){return "0011";}
+  else if(binary == "11101"){return "0100";}
+  else if(binary == "10101"){return "0101";}
+  else if(binary == "10110"){return "0110";}
+  else if(binary == "10111"){return "0111";}
+  else if(binary == "11010"){return "1000";}
+  else if(binary == "01001"){return "1001";}
+  else if(binary == "01010"){return "1010";}
+  else if(binary == "01011"){return "1011";}
+  else if(binary == "11110"){return "1100";}
+  else if(binary == "01101"){return "1101";}
+  else if(binary == "01110"){return "1110";}
+  else if(binary == "01111"){return "1111";}
+  else{return "0000";} //something
 }
 
 
@@ -227,51 +251,128 @@ void loop() {
 
 // ----- RECEIVE STATE ----- //
 
-  // This will continually loop, checking if full signal has been received
-  // before switching back to Tx
+  // This will continually loop while interrupts keep track of the signal change timestamps
   if(RX){
 
-    if(micros() - beginRx >= 90){ // If Rx times out
+    if(micros() - beginRx >= 65){ // Wait 75 us for telemetry signal
 
       detachInterrupt(pinNum);
-      
-      // Debug print statements
-      Serial.print("Micros passed: "); Serial.println(micros() - beginRx);
-      Serial.print("Timings: ");
-      for(int i=0; i<21; i++){
-        Serial.print(timeRecord[i]); Serial.print(", ");
-      }
-      Serial.println(".");
 
-      // Convert ARM cycle ticks to pulse lengths (~ 1/800)
-      // Check if we have received the full signal
-      sum = 0;
-      for(int i=0; i<21; i++){
-        int a = rint((double)timeRecord[i]/800);
-        timeRecord[i] = a;
-        sum += a;
-      }
+      // If we received data
+      if(timeRecord[0] != 0){ 
 
-      // Convert the timeRecord array to 1's and 0's
-      // Only if we have a valid signal
-      if(sum >= 20){ 
-        
+        // These for loops are used to convert the timeRecord array of 
+        // pulse lengths to a binary sequence of type std::bitset<16> 
         int index = 0;
         for(int i=0; i<21; i++){
-          for(int j=0; j<timeRecord[i]; j++){
-      
-            // Stop if we have more data than the expected 21 bits received
-            if(index + j < 21){ 
-              
+
+          // Convert from # of ticks to pulse bit length
+          int a = rint((double)timeRecord[i]/800);
+          timeRecord[i] = a;
+          
+          for(int j=index; j<index + timeRecord[i]; j++){
               // Check if it's a 0 or a 1 based on index, received signal always starts with a 0
-              if(i%2 == 0){receiveFrame[index + j] = 0;}
-              else{receiveFrame[index + j] = 1;}
-            }
+              // Starting from opposite side because bitset has index 0 as LSB
+              if(i%2 == 0){receiveFrame[20 - j] = 0;}
+              else{receiveFrame[20 - j] = 1;}
           }
           
           index += timeRecord[i];
         }
-      }
+
+        // Add trailing 1's for any bits leftover
+        for(int k=index; k<21; k++){
+          receiveFrame[20 - k] = 1; 
+        }
+
+        gcr = (receiveFrame ^ (receiveFrame >> 1));
+  
+        std::string gcr_str = gcr.to_string();
+        //std::reverse(gcr_str.begin(), gcr_str.end()); // Reverse to make MSB first
+  
+        // Map gcr to 16bit string, ignore the first bit
+        std::string sig_str = "";
+        for(int i=1; i<21; i+=5){
+          sig_str += gcr_map(gcr_str.substr(i,5));
+        }
+
+        //std::reverse(sig_str.begin(), sig_str.end()); // Reverse to make LSB index 0      
+        std::bitset<16> sig (sig_str); // Convert the signal string back to an array for bitwise operations
+  
+//        // Debug print statements
+//        Serial.print("Ticks: ");
+//        for(int i=0; i<21; i++){
+//          Serial.print(timeRecord[i]); Serial.print(", ");
+//        }
+//        Serial.println(".");
+        
+//        Serial.print("Bits: ");
+//        for(int i=20; i>=0; i--){
+//          Serial.print(receiveFrame[i]); Serial.print(", ");
+//        }
+//        Serial.println(".");
+  
+//        Serial.print("Gcr: ");
+//        for(int i=20; i>=0; i--){
+//          Serial.print(gcr[i]); Serial.print(", ");
+//        }
+//        Serial.println(".");
+  
+//        Serial.print("Gcr string: ");
+//        for(int i=0; i<21; i++){
+//          Serial.print(gcr_str[i]); Serial.print(", ");
+//        }
+//        Serial.println(".");
+//  
+//        Serial.print("Signal string: ");
+//        //std::reverse(sig_str.begin(), sig_str.end()); // Reverse again so MSB is index 0 for printing
+//        for(int i=0; i<16; i++){
+//          Serial.print(sig_str[i]); Serial.print(", ");
+//        }
+//        Serial.println(".");
+  
+//        Serial.print("Final signal: ");
+//        for(int i=15; i>=0; i--){
+//          Serial.print(sig[i]); Serial.print(", ");
+//        }
+//        Serial.println(".");
+  
+        // Confirm checksum
+        std::bitset<16> mask (0x0F);
+        std::bitset<16> checksum_calc (((sig ^ (sig >> 4) ^ (sig >> 8)) >> 4) & mask);
+        std::bitset<16> checksum_received (sig & mask);
+//        if(checksum_calc == checksum_received){ // Shift an extra 4 to the right since we have 16 bits, not 12
+//        Serial.println("Checksum good");
+        std::bitset<16> telem_mask (std::string("0001111111110000"));
+        int shift = (int)((sig >> 13).to_ulong());
+        std::bitset<16> period_bits (((sig & telem_mask) >> 4) << shift);
+        unsigned long period = period_bits.to_ulong(); // Rotational period in microseconds
+        double eRPM = 1 / ((double)period / 60000000.); // Reciprocal of period in minutes
+//        Serial.print("ERPM: "); Serial.println(eRPM);
+        Serial.print("RPM: "); Serial.println((long)eRPM / 7.);
+          
+//        }else{
+//          Serial.println("Checksum no good");
+//          
+//          Serial.print("Received checksum: "); 
+//          for(int i=20;i>=0;i--){
+//            Serial.print(checksum_received[i]);
+//            Serial.print(", "); 
+//          }
+//          Serial.println("");
+//          
+//          Serial.print("Calculated checksum: "); 
+//          for(int i=20;i>=0;i--){
+//            Serial.print(checksum_calc[i]);
+//            Serial.print(", "); 
+//          }
+//          Serial.println("");
+//        
+//        }
+
+      
+        
+      }      
 
       // Update flags & variables
       RX = 0; TX = 1;
