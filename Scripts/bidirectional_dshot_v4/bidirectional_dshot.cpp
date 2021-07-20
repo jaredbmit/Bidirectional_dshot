@@ -76,7 +76,7 @@ int Dshot::decode_signal(){
   unsigned int rx_sig = 0;
   
   for(int i=0; i<21; i++){
-    timeRecord[i] = rint( timeRecord[i]/900.0 ); // Cycle ticks to pulse unit length
+    timeRecord[i] = rint( timeRecord[i]/800.0 ); // Cycle ticks to pulse unit length
     
     for(int j=0; j<timeRecord[i]; j++){
       if(i%2 == 1){ // If the array index is odd, which determines if it's a 1 or a 0
