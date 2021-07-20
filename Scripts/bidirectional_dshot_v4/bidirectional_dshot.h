@@ -73,8 +73,9 @@ public:
 	volatile unsigned long lastTime;
 	volatile int ISR_counter;
 
+  int PIN_NUM;
+
 private:
-	int PIN_NUM;
 	void(*ISR_FN)(void);
 
 	bool tx;

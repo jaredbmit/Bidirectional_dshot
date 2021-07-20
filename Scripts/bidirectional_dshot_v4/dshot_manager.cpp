@@ -68,32 +68,33 @@ bool DshotManager::Tx_state(){
 // This is a bootleg way of sending signals synchronously, but who knows it might work
 void DshotManager::send_sync(){
 
+  int i; int j;
 	noInterrupts();
 	// 16 bit signals
-	for(int i=0; i<16; i++){ 
+	for(i = 0; i<16; i++){ 
 
 		// 3 distinct portions of each bit: beginning, middle, end.
 		// The beginning is always low, end is always high, but 
 		// the middle is low if it's a 1 bit and high if it's a 0 bit.
-    		// (This is inverted dshot, highs / lows are reversed from normal)
-		for(int j = 0; j<NUM_ESC; j++){DshotPtrs[j]->set_low();}
-		BEGIN_WAIT;
+    // (This is inverted dshot, highs / lows are reversed from normal)
+    for(j = 0; j<NUM_ESC; j++){ digitalWriteFast(DshotPtrs[j]->PIN_NUM, LOW); }
+    BEGIN_WAIT;
 
-		for(int j = 0; j<NUM_ESC; j++){
-			if(DshotPtrs[j]->dshot_signal[i]){ DshotPtrs[j]->set_low(); }
-			else{ DshotPtrs[j]->set_high(); }
-		}
-		MIDDLE_WAIT;
+    for(j = 0; j<NUM_ESC; j++){
+      if(DshotPtrs[j]->dshot_signal[i]){ digitalWriteFast(DshotPtrs[j]->PIN_NUM, LOW); }
+      else{ digitalWriteFast(DshotPtrs[j]->PIN_NUM, HIGH); }
+    }
+    MIDDLE_WAIT;
 
-		for(int j = 0; j<NUM_ESC; j++){DshotPtrs[j]->set_high();}
-		END_WAIT;
+    for(j = 0; j<NUM_ESC; j++){ digitalWriteFast(DshotPtrs[j]->PIN_NUM, HIGH); }
+    END_WAIT;
 
 	}
 
 	interrupts();
-
-	for(int i=0; i<NUM_ESC; i++){
-    		DshotPtrs[i]->tx_flag_off();
+  
+	for(i = 0; i<NUM_ESC; i++){
+    DshotPtrs[i]->tx_flag_off();
 		DshotPtrs[i]->begin_Rx();
 	}
 

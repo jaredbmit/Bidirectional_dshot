@@ -46,7 +46,7 @@ public:
 	// RX Methods
 	void start_Rx();
 	bool Rx_timeout();
-	void stop_Rx();
+	void reset_array();
 	int decode_signal();
 	int get_err_counter();
 	int get_success_counter();

@@ -17,9 +17,9 @@
 // Global variables
 //=============================================================================
 
-static const int telemetry = 0; // No telemetry request for bidirectional dshot
+static constexpr int telemetry = 0; // No telemetry request for bidirectional dshot
 int input_signal = 90; // Default start command
-bool TX = 1; // State 
+bool TX = true; // State 
 
 //=============================================================================
 // RX ISR variables
@@ -27,7 +27,6 @@ bool TX = 1; // State
 
 volatile unsigned long timeStamp = 0; //system clock captured in interrupt
 volatile unsigned long lastTime = 0;
-volatile bool first = 0;
 volatile int counter = 0;
 
 //=============================================================================
@@ -63,14 +62,14 @@ int updateCommand(int input_signal){
 
 void pulseduration_ISR() {
   
-  if(first){
+  if(counter == 0){
     timeStamp = ARM_DWT_CYCCNT; 
     lastTime = timeStamp;
-    first = 0;
+    counter++;
   }else{
     lastTime = timeStamp; 
     timeStamp = ARM_DWT_CYCCNT; 
-    dshot.set_timeRecord(counter, timeStamp - lastTime);
+    dshot.set_timeRecord(counter-1, timeStamp - lastTime);
     counter++;
   }
   
@@ -103,12 +102,13 @@ void loop() {
     // If the user sent something through the terminal, update the throttle command
     input_signal = updateCommand(input_signal);
     dshot.set_throttle(input_signal, telemetry);
+    // This would be replaced by a serial input ISR ^^
 
     // Construct & send the signal
     dshot.send_inv();
 
     // Setup for Rx
-    TX = 0; first = 1; counter = 0;
+    TX = 0; counter = 0;
     dshot.start_Rx();
     pinMode(PIN_NUM, INPUT);
     attachInterrupt(PIN_NUM, pulseduration_ISR, CHANGE);
@@ -120,16 +120,17 @@ void loop() {
 
     if(dshot.Rx_timeout()){
 
-      dshot.stop_Rx(); // Currently doesn't do anything
-      TX = 1;
       detachInterrupt(PIN_NUM);
-      pinMode(PIN_NUM, OUTPUT);
 
       // Decode the signal to RPM
       unsigned short RPM = dshot.decode_signal();
       if(RPM != 0xffff){ // decode_signal() returns 0xffff in the case of an error or no signal receive
         Serial.print(input_signal); Serial.print(", "); Serial.println(RPM);  
       }
+
+      dshot.reset_array();
+      pinMode(PIN_NUM, OUTPUT);
+      TX = 1;
       
     }
   }

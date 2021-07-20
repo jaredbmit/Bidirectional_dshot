@@ -61,9 +61,10 @@ bool Dshot::Rx_timeout(){
   return (micros() - begin_timestamp >= 80);
 }
 
-// ---
-void Dshot::stop_Rx(){
-  // Detach interrupt? Is that too connected to hardware? Is this fn useless?
+void Dshot::reset_array(){
+  for(int i=0;i<21;i++){
+    timeRecord[i] = 0;  
+  }
 }
 
 // Decodes the timestamp array into a final signal
@@ -73,6 +74,11 @@ int Dshot::decode_signal(){
   if(*array_pointer == 0){ // Did we receive something?
     return 0xffff;
   }
+
+  for(int i=0; i<21; i++){
+    Serial.print(*(array_pointer + i)); Serial.print(", ");
+  }
+  Serial.println(" ");
 
   int counter = 0;
   unsigned int rx_sig = 0;
