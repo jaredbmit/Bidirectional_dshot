@@ -27,17 +27,17 @@ DshotManager::DshotManager(std::vector<int> pins){
   ARM_DEMCR |= ARM_DEMCR_TRCENA; // debug exception monitor control register; enables trace and debug
   ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;
 
-	NUM_ESC = pins.size();
+  NUM_ESC = pins.size();
 
-	for(int i=0; i<8; i++){
+  for(int i=0; i<8; i++){
     if(i<NUM_ESC){
-  		dshot_.emplace_back(Dshot(pins[i], isr[i]));
-  		DshotPtrs[i] = &(dshot_.back());
-      DshotPtrs[i]->ISR_counter = 0;
+  	dshot_.emplace_back(Dshot(pins[i], isr[i]));
+  	DshotPtrs[i] = &(dshot_.back());
+    	DshotPtrs[i]->ISR_counter = 0;
     }else{
-      DshotPtrs[i] = 0; // Null pointer
+    	DshotPtrs[i] = 0; // Null pointer
     }
-	}
+  }
 
 }
 
@@ -59,9 +59,9 @@ int DshotManager::get_num_esc(){
 }
 
 bool DshotManager::Tx_state(){
-	for(int i=0; i<NUM_ESC; i++){
+  for(int i=0; i<NUM_ESC; i++){
     if(!DshotPtrs[i]->ready_for_tx()){return false;}
-	}
+  }
   return true;
 }
 
@@ -77,18 +77,6 @@ void DshotManager::send_sync(){
 		// The beginning is always low, end is always high, but 
 		// the middle is low if it's a 1 bit and high if it's a 0 bit.
     // (This is inverted dshot, highs / lows are reversed from normal)
-//		for(j = 0; j<NUM_ESC; j++){DshotPtrs[j]->set_low();}
-//		BEGIN_WAIT;
-//
-//		for(j = 0; j<NUM_ESC; j++){
-//			if(DshotPtrs[j]->dshot_signal[i]){ DshotPtrs[j]->set_low(); }
-//			else{ DshotPtrs[j]->set_high(); }
-//		}
-//		MIDDLE_WAIT;
-//
-//		for(j = 0; j<NUM_ESC; j++){DshotPtrs[j]->set_high();}
-//		END_WAIT;
-
     for(j = 0; j<NUM_ESC; j++){ digitalWriteFast(DshotPtrs[j]->PIN_NUM, LOW); }
     BEGIN_WAIT;
 
@@ -104,7 +92,7 @@ void DshotManager::send_sync(){
 	}
 
 	interrupts();
-
+  
 	for(i = 0; i<NUM_ESC; i++){
     DshotPtrs[i]->tx_flag_off();
 		DshotPtrs[i]->begin_Rx();

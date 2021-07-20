@@ -57,9 +57,9 @@ public:
 	int get_err_counter();
 	int get_success_counter();
 	bool ready_for_decoding();
-  bool ready_for_tx();
-  void tx_flag_off();
-  void tx_flag_on();
+	bool ready_for_tx();
+	void tx_flag_off();
+	void tx_flag_on();
 	void decode_flag_off();
 	void decode_flag_on();
 	void begin_Rx();
@@ -78,7 +78,7 @@ public:
 private:
 	void(*ISR_FN)(void);
 
-  bool tx;
+	bool tx;
 
 	volatile int timeRecord[21] = {0};
 	volatile bool rx_done;
