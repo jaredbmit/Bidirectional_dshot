@@ -17,7 +17,7 @@ static constexpr int NUM_ESC = 2; // Max up to 6 ESC's
 // ESC comms init
 //=============================================================================
 
-DshotManager manager(NUM_ESC);
+DshotManager manager();
 
 //=============================================================================
 // Global variables
