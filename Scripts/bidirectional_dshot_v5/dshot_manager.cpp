@@ -173,7 +173,7 @@ void (*DSHOT_DMA_ISR[6])( void )  = { DSHOT_DMA_interrupt_routine_0,
 // DshotManager Class definitions
 // ------------------------------------------------------------ //
 
-DshotManager::DshotManager(uint8_t n) {
+DshotManager::DshotManager() {
 
   // Start ARM cycle counter
   ARM_DEMCR |= ARM_DEMCR_TRCENA; // debug exception monitor control register; enables trace and debug
