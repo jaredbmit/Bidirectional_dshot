@@ -26,7 +26,7 @@
 class DshotManager
 {
 public:
-	DshotManager(uint8_t n);
+	DshotManager();
 	void start_tx();
 	void set_throttle_esc(int i, uint16_t input);
 	bool ready_for_decoding();
