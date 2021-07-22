@@ -23,8 +23,6 @@ DshotManager manager(NUM_ESC);
 // Global variables
 //=============================================================================
 
-uint16_t RPM;
-
 //=============================================================================
 // setup
 //=============================================================================
@@ -48,12 +46,12 @@ void loop(){
 
   updateCommand();
 
-  if( manager.ready_for_decoding() ){
-    for( int i = 0; i < NUM_ESC; i++ ){
-      RPM = manager.decode_signal(i);
-      Serial.print("Motor "); Serial.print(i); Serial.print(": "); Serial.println(RPM);
-    }
-  }
+//  if( manager.ready_for_decoding() ){
+//    for( int i = 0; i < NUM_ESC; i++ ){
+//      RPM = manager.decode_signal(i);
+//      Serial.print("Motor "); Serial.print(i); Serial.print(": "); Serial.println(RPM);
+//    }
+//  }
 
 }
 

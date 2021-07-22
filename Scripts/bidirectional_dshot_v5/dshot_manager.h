@@ -18,7 +18,7 @@
 #define DSHOT_LP_DURATION         1250          // Duration of a DSHOT600 long pulse in ns
 #define DSHOT_SP_DURATION         625           // Duration of a DSHOT600 short pulse in ns
 #define MAX_ESC                   6             // Supports up to 6 ESCs
-#define TX_WAIT                   115           // Interval in microseconds at which dshot signals are sent
+#define TX_WAIT                   130           // Interval in microseconds at which dshot signals are sent
 #define RX_WAIT                   65            // Interval in microseconds to wait for incoming receive signal
 #define RX_SIGNAL_LENGTH          21            // Number of bits in the dshot feedback received signal
 #define RX_BIT_TICK_LENGTH        800           // Received signal bit pulse length in number of ARM cycle ticks (800 ticks = 1.33 us)
@@ -29,16 +29,13 @@ public:
 	DshotManager(uint8_t n);
 	void start_tx();
 	void set_throttle_esc(int i, uint16_t input);
-	bool ready_for_decoding();
-	uint16_t decode_signal(int i);
-
-private:
-	void reset_array(int i);
 };
 
 void DMA_init(int i);
+void assemble_signal_esc(int i);
+uint16_t decode_signal(int i);
+void reset_array(int i);
 void tx_ISR();
 void rx_ISR();
-void assemble_signal_esc(int i);
 
 #endif /* DSHOT_MANAGER_H_ */

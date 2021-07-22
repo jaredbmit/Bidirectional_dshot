@@ -11,6 +11,9 @@
 #define F_TMR F_BUS_ACTUAL
 #endif
 
+uint32_t start;
+uint32_t RPM;
+
 const uint16_t DSHOT_short_pulse  = uint64_t(F_TMR) * DSHOT_SP_DURATION / 1000000000;     // DSHOT short pulse duration (nb of F_BUS periods)
 const uint16_t DSHOT_long_pulse   = uint64_t(F_TMR) * DSHOT_LP_DURATION / 1000000000;     // DSHOT long pulse duration (nb of F_BUS periods)
 const uint16_t DSHOT_bit_length   = uint64_t(F_TMR) * DSHOT_BT_DURATION / 1000000000;     // DSHOT bit duration (nb of F_BUS periods)
@@ -155,6 +158,7 @@ DSHOT_DMA_interrupt_routine( 5 );
 // The first ISR has to contain additional timer setup to attach an interrupt RX_WAIT time from now
 void DSHOT_DMA_interrupt_routine_0( void ) {
   dma[0].clearInterrupt( );
+  Serial.print(micros() - start); Serial.println("DMA done");
   (*DSHOT_mods[0]).MCTRL &= ~( FLEXPWM_MCTRL_RUN( 1 << DSHOT_sm[0] ) );
   pinMode(DSHOT_pin[0], INPUT);
   attachInterrupt(DSHOT_pin[0], DSHOT_RX_ISR[0], CHANGE);
@@ -188,88 +192,6 @@ void DshotManager::set_throttle_esc(int i, uint16_t input) {
 
 void DshotManager::start_tx() {
   tx_timer.begin(tx_ISR, TX_WAIT);
-}
-
-bool DshotManager::ready_for_decoding() {
-  return dshot_comm.decode_flag;
-}
-
-uint16_t DshotManager::decode_signal(int i) {
-
-  dshot_comm.decode_flag = false;
-
-  if (dshot_comm.line[i].timeRecord[0] == 0) { // Did we receive something?
-    reset_array(i);
-    return 0xffff;
-  }
-
-  int counter = 0;
-  int num;
-  uint32_t rx_sig = 0;
-
-  for (int j = 0; j < RX_SIGNAL_LENGTH; j++) {
-    num = rint( dshot_comm.line[i].timeRecord[j] / float(RX_BIT_TICK_LENGTH) );
-
-    for (int k = 0; k < num; k++) {
-
-      if (j % 2 == 1) { // If the array index is odd, which determines if it's a 1 or a 0
-        rx_sig += (1 << (RX_SIGNAL_LENGTH - 1 - (counter + k)));
-      }
-
-    }
-
-    counter += num;
-  }
-
-  // Pad 1's at the end
-  for (int j = counter; j < RX_SIGNAL_LENGTH; j++) {
-    rx_sig += (1 << (RX_SIGNAL_LENGTH - 1 - j));
-  }
-
-  uint32_t gcr = (rx_sig ^ (rx_sig >> 1));
-
-  static const uint8_t gcr_map[32] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 10, 11, 0, 13, 14, 15,
-    0, 0, 2, 3, 0, 5, 6, 7, 0, 0, 8, 1, 0, 4, 12, 0
-  };
-
-  uint16_t fin_sig = gcr_map[gcr & 0x1f];
-  fin_sig |= gcr_map[(gcr >> 5) & 0x1f] << 4;
-  fin_sig |= gcr_map[(gcr >> 10) & 0x1f] << 8;
-  fin_sig |= gcr_map[(gcr >> 15) & 0x1f] << 12;
-
-  uint16_t csum = fin_sig;
-  csum = csum ^ (csum >> 8);
-  csum = csum ^ (csum >> 4);
-
-  // Checksum calculation
-  if ((csum & 0xf) != 0xf) {
-    Serial.println("Checksum err");
-    dshot_comm.line[i].CHECKSUM_ERR_COUNTER++;
-    reset_array(i);
-    return 0xffff;
-  }
-
-  dshot_comm.line[i].CHECKSUM_SUCCESS_COUNTER++;
-
-  // If we receive the max period, assume motor is not spinning
-  if ((fin_sig >> 4) == 0x0fff) {
-    reset_array(i);
-    return 0;
-  }
-
-  uint8_t shift = fin_sig >> 13;
-  uint16_t period_us = (((fin_sig >> 4) & 0b111111111) << shift);
-  float eRPM = 1 / ((float)period_us / 60000000);
-  reset_array(i);
-  return eRPM / 7;
-
-}
-
-void DshotManager::reset_array(int i) {
-  for (int j = 0; j < RX_SIGNAL_LENGTH; j++) {
-    dshot_comm.line[i].timeRecord[j] = 0;
-  }
 }
 
 // ------------------------------------------------------------ //
@@ -362,6 +284,82 @@ void assemble_signal_esc(int i) {
 
 }
 
+uint16_t decode_signal(int i) {
+
+  if (dshot_comm.line[i].timeRecord[0] == 0) { // Did we receive something?
+    reset_array(i);
+    return 0xffff;
+  }
+
+  int counter = 0;
+  int num;
+  uint32_t rx_sig = 0;
+
+  for (int j = 0; j < RX_SIGNAL_LENGTH; j++) {
+    num = rint( dshot_comm.line[i].timeRecord[j] / float(RX_BIT_TICK_LENGTH) );
+
+    for (int k = 0; k < num; k++) {
+
+      if (j % 2 == 1) { // If the array index is odd, which determines if it's a 1 or a 0
+        rx_sig += (1 << (RX_SIGNAL_LENGTH - 1 - (counter + k)));
+      }
+
+    }
+
+    counter += num;
+  }
+
+  // Pad 1's at the end
+  for (int j = counter; j < RX_SIGNAL_LENGTH; j++) {
+    rx_sig += (1 << (RX_SIGNAL_LENGTH - 1 - j));
+  }
+
+  uint32_t gcr = (rx_sig ^ (rx_sig >> 1));
+
+  static const uint8_t gcr_map[32] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 9, 10, 11, 0, 13, 14, 15,
+    0, 0, 2, 3, 0, 5, 6, 7, 0, 0, 8, 1, 0, 4, 12, 0
+  };
+
+  uint16_t fin_sig = gcr_map[gcr & 0x1f];
+  fin_sig |= gcr_map[(gcr >> 5) & 0x1f] << 4;
+  fin_sig |= gcr_map[(gcr >> 10) & 0x1f] << 8;
+  fin_sig |= gcr_map[(gcr >> 15) & 0x1f] << 12;
+
+  uint16_t csum = fin_sig;
+  csum = csum ^ (csum >> 8);
+  csum = csum ^ (csum >> 4);
+
+  // Checksum calculation
+  if ((csum & 0xf) != 0xf) {
+    Serial.println("Checksum err");
+    dshot_comm.line[i].CHECKSUM_ERR_COUNTER++;
+    reset_array(i);
+    return 0xffff;
+  }
+
+  dshot_comm.line[i].CHECKSUM_SUCCESS_COUNTER++;
+
+  // If we receive the max period, assume motor is not spinning
+  if ((fin_sig >> 4) == 0x0fff) {
+    reset_array(i);
+    return 0;
+  }
+
+  uint8_t shift = fin_sig >> 13;
+  uint16_t period_us = (((fin_sig >> 4) & 0b111111111) << shift);
+  float eRPM = 1 / ((float)period_us / 60000000);
+  reset_array(i);
+  return eRPM / 7;
+
+}
+
+void reset_array(int i) {
+  for (int j = 0; j < RX_SIGNAL_LENGTH; j++) {
+    dshot_comm.line[i].timeRecord[j] = 0;
+  }
+}
+
 // ------------------------------------------------------------ //
 // ISR's
 // ------------------------------------------------------------ //
@@ -369,10 +367,15 @@ void assemble_signal_esc(int i) {
 // Turn on master control for each submodule being used
 void tx_ISR( void ) {
 
+  start = micros();
+  Serial.print(micros() - start); Serial.println("Start tx");
+
   for ( int i = 0; i < MAX_ESC; i++ ) {
     DMA_init(i);
     assemble_signal_esc(i);
   }
+
+  Serial.print(micros() - start); Serial.println("DMA & Assmebling");
 
   for ( int i = 0; i < MAX_ESC; i++ ) {
     (*DSHOT_mods[i]).MCTRL |= FLEXPWM_MCTRL_RUN( 1 << DSHOT_sm[i] );
@@ -382,9 +385,14 @@ void tx_ISR( void ) {
 
 // Set flag to decode the signals in loop function
 void rx_ISR( void ) {
-  dshot_comm.decode_flag = true;
-  for (int i = 0; i < MAX_ESC; i++) {
-    dshot_comm.line[i].ISR_counter = 0;
+  Serial.print(micros() - start); Serial.println("Rx ISR");
+  int i;
+  for (i = 0; i < MAX_ESC; i++) {
     detachInterrupt(DSHOT_pin[i]);
+    dshot_comm.line[i].ISR_counter = 0;
   }
+  for (i = 0; i < MAX_ESC; i++) {
+    RPM = decode_signal(i);
+  }
+  Serial.print(micros() - start); Serial.println("Decoding finished");
 }
