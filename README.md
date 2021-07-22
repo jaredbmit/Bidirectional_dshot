@@ -38,19 +38,19 @@ Currently configured to communicate to a max of 6 ESCs. Pin numbers can be chang
 ### Changing pin config
 Pin configurations (pin number, corresponding PWM modules, pin muxing options) are found in firmware/bidirectional_dshot.cpp. All of these arrays have pin-specific info, so if a pin number is changed, the corresponding values in all of the other config arrays must also be changed. The values for these config arrays can all be found based on what pin number is chosen.
 
-<img src="/uploads/7594adb88d706c2332bfa7acb0b3fe91/pin_config_ss.PNG" width="500">
+<img src="https://user-images.githubusercontent.com/78260876/126682916-42551243-1609-4438-bf8c-dbc0c05ea4c9.PNG" width="500">
 
 The first step is to use the following teensy 4.0 pin card to find which pad corresponds to your desired pin (under the "Native" column). 
 
-<img src="/uploads/46cf4903b0e9cc01198a4a398fc7d81f/teensy4_card_extended.PNG" width="500">
+<img src="https://user-images.githubusercontent.com/78260876/126682909-87c9f5cc-6526-41dd-9080-908390506af9.PNG" width="500">
 
 Then, navigate to the [IMXRT1060 manual](https://www.pjrc.com/teensy/IMXRT1060RM_rev2.pdf) and find the IOMUX section (Chapter 10, page 293).
 
-<img src="/uploads/1cf1542bff5872451f0422f90dc9ace7/IOMUX_ss.PNG" width="500">
+<img src="https://user-images.githubusercontent.com/78260876/126682896-443ae6cd-1d33-40a0-bee1-ca6b92ef0f1b.PNG" width="500">
 
 Ctrl+f the desired pad name in this table and note which eFlexPWM module, submodule, channel, and pin mux it corresponds to (there may be multiple choices). For example, if pin 4 is desired, which corresponds to pad GPIO_EMC_06, the following info is found in the IOMUX table:
 
-<img src="/uploads/fddde4c6b64132d2d21dee60202ac4d8/IOMUX_ex_ss.PNG" width="500">
+<img src="https://user-images.githubusercontent.com/78260876/126682890-e68107ed-8f42-40da-91f6-3ac14a2e2291.PNG" width="500">
 
 This means pin 4 uses eFlexPWM module 2, submodule 0, channel A, and pin mux ALT1. Place these values at the desired index of all the config arrays back in firmware/bidirectional_dshot.cpp (Index 0 = ESC 1, index 1 = ESC 2...). The last config option that has not been accounted for is the dmamux array, which contains info on DMA write requests. The DMA write request addresses can be found in the teensy 4 cores library, but it's easier to just follow the pattern: DMAMUX_SOURCE_FLEXPWM-_WRITE-, where the first - is replaced with the module number and the second - is replaced with the submodule number.
 
