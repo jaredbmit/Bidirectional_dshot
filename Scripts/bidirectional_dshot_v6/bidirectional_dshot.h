@@ -8,8 +8,8 @@
 #ifndef BIDIRECTIONAL_DSHOT_H_
 #define BIDIRECTIONAL_DSHOT_H_
 
-#include "DMAChannel.h"
 #include <Arduino.h>
+#include "DMAChannel.h"
 
 #define DSHOT_DMA_LENGTH          18            // Number of steps of one DMA sequence (the two last values are zero)
 #define DSHOT_DMA_MARGIN          2             // Number of additional bit duration to wait until checking if DMA is over

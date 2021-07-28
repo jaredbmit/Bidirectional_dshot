@@ -27,7 +27,7 @@ IntervalTimer rx_timer;
 // DMA eFlexPWM modules
 volatile IMXRT_FLEXPWM_t*  DSHOT_mods[MAX_ESC]  = { &IMXRT_FLEXPWM2,
                                                     &IMXRT_FLEXPWM1,
-                                                    &IMXRT_FLEXPWM4,
+                                                    &IMXRT_FLEXPWM1,
                                                     &IMXRT_FLEXPWM4,
                                                     &IMXRT_FLEXPWM4,
                                                     &IMXRT_FLEXPWM2
@@ -36,7 +36,7 @@ volatile IMXRT_FLEXPWM_t*  DSHOT_mods[MAX_ESC]  = { &IMXRT_FLEXPWM2,
 // DMA eFlexPWM submodules
 volatile uint8_t          DSHOT_sm[MAX_ESC]     = { 0,
                                                     3,
-                                                    2,
+                                                    0,
                                                     0,
                                                     1,
                                                     2
@@ -54,7 +54,7 @@ volatile uint8_t          DSHOT_abx[MAX_ESC]    = { 0,
 // Output pins
 volatile uint8_t          DSHOT_pin[MAX_ESC]    = { 4,
                                                     8,
-                                                    2,
+                                                    10,
                                                     22,
                                                     23,
                                                     9
@@ -72,7 +72,7 @@ volatile uint8_t          DSHOT_pinmux[MAX_ESC] = { 1,
 // DMA source
 volatile uint8_t          DSHOT_dmamux[MAX_ESC] = { DMAMUX_SOURCE_FLEXPWM2_WRITE0,
                                                     DMAMUX_SOURCE_FLEXPWM1_WRITE3,
-                                                    DMAMUX_SOURCE_FLEXPWM4_WRITE2,
+                                                    DMAMUX_SOURCE_FLEXPWM1_WRITE0,
                                                     DMAMUX_SOURCE_FLEXPWM4_WRITE0,
                                                     DMAMUX_SOURCE_FLEXPWM4_WRITE1,
                                                     DMAMUX_SOURCE_FLEXPWM2_WRITE2
@@ -191,7 +191,6 @@ DshotManager::DshotManager()
 void DshotManager::set_throttle_esc(int i, uint16_t input) 
 {
   DSHOT_signals[i] = input;
-  assemble_signal_esc(i);
 }
 
 void DshotManager::start_tx() 
@@ -203,17 +202,16 @@ uint32_t DshotManager::average_eRPM(int i)
 {
   if (dshot_comm.line[i].eRPM_counter != 0) { // No zero division; in case we haven't received a legitimate packet
     uint32_t eRPM_average = rint( dshot_comm.line[i].eRPM_sum / dshot_comm.line[i].eRPM_counter );
-
-    // Reset (shared data -- no interrupts)
-    noInterrupts();
-    dshot_comm.line[i].eRPM_sum = 0;
-    dshot_comm.line[i].eRPM_counter = 0;
-    interrupts();
-
-    return eRPM_average;
   } else {
-    return 0xffffffff; // Return max (failure case)
+    uint32_t eRPM_average = 0xffffffff;
   }
+  // Reset (shared data -- no interrupts)
+  noInterrupts();
+  dshot_comm.line[i].eRPM_sum = 0;
+  dshot_comm.line[i].eRPM_counter = 0;
+  interrupts();
+
+  return eRPM_average;
 }
 
 // ------------------------------------------------------------ //
@@ -320,15 +318,11 @@ uint32_t decode_signal(int i)
 
   for (int j = 0; j < RX_SIGNAL_LENGTH; j++) {
     num = rint( dshot_comm.line[i].timeRecord[j] / float(RX_BIT_TICK_LENGTH) );
-
     for (int k = 0; k < num; k++) {
-
       if (j % 2 == 1) { // If the array index is odd, which determines if it's a 1 or a 0
         rx_sig += (1 << (RX_SIGNAL_LENGTH - 1 - (counter + k)));
       }
-
     }
-
     counter += num;
   }
 
